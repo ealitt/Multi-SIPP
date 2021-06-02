@@ -191,30 +191,55 @@ function getSuccessors(data, cell) {
   return successors;
 }
 
-function getValidNeighbors(data, cell) {
-  let neighborCells = [];
-
-  let neighbors = [ 0, 1, 0,
-                    1, 0, 1,
-                    0, 1, 0 ];
-
-  let index = 0;
-  for (let y = 1; y >= -1; y--) {
-    for (let x = -1; x <= 1; x++) {
-      if (neighbors[index] != 0) {
-        let xDir = cell.x + x;
-        let yDir = cell.y + y;
-        if (xDir >= 0 && xDir <= data.gridCopy.length - 1 &&
-            yDir >= 0 && yDir <= data.gridCopy[0].length - 1 &&
-            !data.gridCopy[xDir][yDir].wall) {
-              neighborCells.push(data.gridCopy[xDir][yDir]);
-            }
-      }
-      index += 1;
-    }
+function isValidPos(data, pos) {
+  if (pos[0] >= 0 && pos[0] < data.gridCopy.length &&
+      pos[1] >= 0 && pos[1] < data.gridCopy.length) {
+        if(!data.gridCopy[pos[0]][pos[1]].wall) {
+          return true;
+        }
   }
+  return false
+}
+
+function getValidNeighbors(data, cell) {
+  // let neighborCells = [];
+
+  // let neighbors = [ 0, 1, 0,
+  //                   1, 0, 1,
+  //                   0, 1, 0 ];
+
+  // let index = 0;
+  // for (let y = 1; y >= -1; y--) {
+  //   for (let x = -1; x <= 1; x++) {
+  //     if (neighbors[index] != 0) {
+  //       let xDir = cell.x + x;
+  //       let yDir = cell.y + y;
+  //       if (xDir >= 0 && xDir <= data.gridCopy.length - 1 &&
+  //           yDir >= 0 && yDir <= data.gridCopy[0].length - 1 &&
+  //           !data.gridCopy[xDir][yDir].wall) {
+  //             neighborCells.push(data.gridCopy[xDir][yDir]);
+  //           }
+  //     }
+  //     index += 1;
+  //   }
+  // }
   
-  return neighborCells;
+  // return neighborCells;
+  let neighbors = [];
+
+  let up = [cell.x, cell.y + 1]
+  if (isValidPos(data, up)) { neighbors.push(data.gridCopy[up[0]][up[1]]) }
+
+  let down = [cell.x, cell.y - 1]
+  if (isValidPos(data, down)) { neighbors.push(data.gridCopy[down[0]][down[1]]) }
+
+  let left = [cell.x - 1, cell.y]
+  if (isValidPos(data, left)) { neighbors.push(data.gridCopy[left[0]][left[1]]) }
+
+  let right = [cell.x + 1, cell.y]
+  if (isValidPos(data, right)) { neighbors.push(data.gridCopy[right[0]][right[1]]) }
+
+  return neighbors;
 }
 
 function getHeuristic(a, b) {
@@ -270,18 +295,30 @@ function findPath(robot) {
   }
   robot.path.splice(0, 0, new State(robot.start, 0, [0, Infinity]));
 
-  let tempPath = [...robot.path];
-  robot.path.forEach((cell) => {
-    if (cell.time > 0) {
-      let pauseTime = cell.time - cell.parent.time;
-      if (pauseTime > 1) {
-        for (let pause = 0; pause < pauseTime; pause++) {
-          tempPath.splice(tempPath.indexOf(cell), 0, new State(cell.pos, cell.time-pause));
+  // let tempPath = [...robot.path];
+  // robot.path.forEach((cell) => {
+  //   if (cell.time > 0) {
+  //     let pauseTime = cell.time - cell.parent.time;
+  //     if (pauseTime > 1) {
+  //       for (let pause = 0; pause < pauseTime; pause++) {
+  //         tempPath.splice(tempPath.indexOf(cell), 0, new State(cell.pos, cell.time-pause));
+  //       }
+  //     }
+  //   }
+  // })
+  // robot.path = tempPath;
+  for (let index = robot.path.length - 1; index > 0; index--) {
+    let pauseTime = robot.path[index].time - robot.path[index - 1].time;
+    if (pauseTime > 1) {
+      for (let pause = pauseTime; pause >= 0; pause--) {
+        let step = robot.path[index-1];
+        // lazy fix
+        if (step.time + pause - 1 > 0) {
+          robot.path.splice(index, 0, new State(step.pos, step.time + pause - 1, step.interval));
         }
       }
     }
-  })
-  robot.path = tempPath;
+  }
 
   return robot;
 }
@@ -312,7 +349,7 @@ function splitInterval(grid, cell) {
       let start = interval[0];
       let end = interval[1];
       // intervals.removeAtIndex(index);
-      intervals.pop(index);
+      // intervals.pop(index);
       intervals.splice(index, 0, [cell.time+1, end]);
       intervals.splice(index, 0, [start, cell.time-1]);
     }
@@ -323,13 +360,9 @@ function splitInterval(grid, cell) {
 }
 
 function updateDynamicObstacles(grid, robot) {
-  // robot.path.forEach((step) => {
-  //   grid = splitInterval(grid, step);
-  // })
-
-  for (let step = 0; step <= robot.path.length-1; step++) {
-    grid = splitInterval(grid, robot.path[step]);
-  }
+  robot.path.forEach((step) => {
+    grid = splitInterval(grid, step);
+  })
 
   return grid;
 }
